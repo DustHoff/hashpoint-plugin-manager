@@ -1,0 +1,32 @@
+name         = "plugin-manager"
+version      = "1.0.0"
+api_version  = 1
+description  = "Installs and updates Hashpoint plugins from a GitHub-based repo index."
+capabilities = ["plugin_management"]
+
+[config_schema.fields.repo_index_url]
+label    = "Repo Index (raw URL zur repo.json — leer ⇒ Default DustHoff/hashpoint-plugin-manager@main)"
+type     = "text"
+required = false
+
+[config_schema.fields.github_token]
+label    = "GitHub PAT (optional, hebt Rate-Limit an)"
+type     = "password"
+required = false
+
+[config_schema.fields.include_prereleases]
+label    = "Pre-Releases anzeigen"
+type     = "boolean"
+required = false
+default  = "false"
+
+[config_schema.fields.pinned_versions]
+label    = "Version-Pins (JSON: {\"name\":\"x.y.z\"})"
+type     = "text"
+required = false
+
+[config_schema.fields.cache_ttl_seconds]
+label    = "Cache-TTL für Index und Releases (Sekunden)"
+type     = "text"
+required = false
+default  = "300"

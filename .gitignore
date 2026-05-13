@@ -1,0 +1,22 @@
+# Compiled binaries — anchored to root so `cmd/plugin-manager/` source dir is kept
+/plugin-manager
+/plugin-manager.exe
+
+# Go test/coverage artefacts
+*.test
+*.out
+coverage.txt
+coverage.html
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*~
+
+# Claude Code local state
+.claude/
+
+# OS metadata
+.DS_Store
+Thumbs.db
