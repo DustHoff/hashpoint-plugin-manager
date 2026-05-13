@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  # Don't cancel pushes to main — every commit should produce a complete
+  # build record. Group by ref so concurrent merges still serialise.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CGO_ENABLED: "0"
+
+jobs:
+  build:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          check-latest: true
+          cache: true
+
+      - name: go mod verify
+        # On main we additionally verify the module cache matches go.sum —
+        # PRs skip this because a touched dep is the normal case there.
+        run: go mod verify
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go build
+        run: go build ./...
+
+      - name: go test
+        run: go test ./...

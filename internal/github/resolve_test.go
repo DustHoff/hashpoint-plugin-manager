@@ -11,7 +11,7 @@ func mkRelease(tag string, draft, prerelease bool) Release {
 func TestFilterCandidates_DropsDraftsAndPrereleases(t *testing.T) {
 	rels := []Release{
 		mkRelease("v1.2.0", false, false),
-		mkRelease("v1.3.0", true, false),    // draft
+		mkRelease("v1.3.0", true, false),      // draft
 		mkRelease("v1.4.0-rc.1", false, true), // prerelease
 		mkRelease("v1.5.0", false, false),
 	}

@@ -232,7 +232,7 @@ func (p *Plugin) resolveOne(ctx context.Context, cfg *config.Config, gh *github.
 	})
 	if len(candidates) == 0 {
 		p.log.Debug(ctx, "no compatible release for plugin", map[string]string{
-			"name":              e.Name,
+			"name":               e.Name,
 			"sdk.HostAPIVersion": fmt.Sprintf("%d", sdk.HostAPIVersion),
 		})
 		return nil, nil

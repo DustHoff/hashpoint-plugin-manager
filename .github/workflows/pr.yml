@@ -1,0 +1,58 @@
+name: PR Check
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  # Cancel an in-flight run when the same PR pushes new commits — the
+  # earlier run becomes stale instantly, and runner time is a shared
+  # resource.
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  CGO_ENABLED: "0"
+
+jobs:
+  check:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # All three matrix entries should report independently — a Windows
+      # regression shouldn't mask a Linux test failure or vice versa.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          check-latest: true
+          cache: true
+
+      - name: gofmt check
+        # gofmt output is platform-uniform; running it on every OS just
+        # burns minutes for an identical result.
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          if [ -n "$(gofmt -l .)" ]; then
+            echo "::error::Unformatted files:"
+            gofmt -l .
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go build
+        run: go build ./...
+
+      - name: go test
+        run: go test ./...
