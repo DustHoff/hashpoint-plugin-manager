@@ -4,7 +4,7 @@ go 1.26
 
 require (
 	github.com/BurntSushi/toml v1.4.0
-	github.com/dusthoff/hashpoint v0.0.0
+	github.com/dusthoff/hashpoint v1.0.2
 	golang.org/x/mod v0.21.0
 )
 
@@ -24,5 +24,3 @@ require (
 	google.golang.org/grpc v1.61.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 )
-
-replace github.com/dusthoff/hashpoint => ../hashpoint
