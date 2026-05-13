@@ -106,3 +106,4 @@ hashpoint-plugin-manager/
 - ❌ Plugin-Name in Log-Calls voranstellen — Host attribuiert selbst.
 - ❌ Annahmen aus dieser Datei über konkrete SDK-Signaturen treffen — **vorher SDK fetchen**.
 - ❌ cgo-Abhängigkeiten einführen (direkt oder transitiv). Pure-Go-Build, `CGO_ENABLED=0` ist verbindlich. Bei Dependency-Auswahl prüfen, ob ein Paket `import "C"` oder `cgo`-Tags verwendet.
+- ❌ `replace`-Direktiven mit relativen Pfaden (`=> ../something`) in `go.mod` committen. Sie funktionieren nur auf dem Maintainer-Rechner; CI-Runner und frische Clones haben das Sibling-Verzeichnis nicht und brechen sofort an `go mod verify` ab. Für lokale Entwicklung gegen unveröffentlichten Code stattdessen ein **gitignored** `go.work` benutzen.
