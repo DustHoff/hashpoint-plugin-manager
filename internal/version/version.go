@@ -8,7 +8,7 @@ package version
 // Manager is the Plugin Manager's semver version (no leading "v"; callers
 // that compare via golang.org/x/mod/semver normalize). Bump in lockstep
 // with the manifest.toml `version` field.
-const Manager = "1.0.1"
+const Manager = "1.0.2"
 
 // Name is this plugin's identifier under <PluginsDir>/<name>/, and the
 // value Metadata() returns. Install/Update/Uninstall reject calls
