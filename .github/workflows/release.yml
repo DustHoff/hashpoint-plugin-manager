@@ -1,0 +1,175 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  # Serialise releases — concurrent runs would race on tag creation and
+  # version-bump pushes. cancel-in-progress: false keeps every push's
+  # release pipeline running to completion.
+  group: release
+  cancel-in-progress: false
+
+env:
+  CGO_ENABLED: "0"
+
+jobs:
+  test:
+    # The publish job pushes a chore(release) commit back to main. We
+    # detect that follow-up push by the actor and short-circuit the entire
+    # release pipeline, so we don't run a full matrix twice per release.
+    if: github.actor != 'github-actions[bot]'
+    name: test/${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          check-latest: true
+          cache: true
+
+      - run: go vet ./...
+      - run: go build ./...
+      - run: go test ./...
+
+  publish:
+    needs: test
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history + all tags so the bump logic can find the last
+          # released version. token is the default GITHUB_TOKEN, which has
+          # contents:write per the job-level permissions above.
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          check-latest: true
+          cache: true
+
+      - name: Determine next version
+        id: bump
+        shell: bash
+        run: |
+          set -euo pipefail
+          last_tag=$(git tag --list 'v*' --sort=-v:refname | head -n1 || true)
+          if [ -z "$last_tag" ]; then
+            # First-ever release. Take whatever version.go currently
+            # declares as the starting point; no source change needed.
+            current=$(grep -E '^const Manager = ' internal/version/version.go \
+                      | sed -E 's/.*"([^"]+)".*/\1/')
+            new_version="$current"
+            should_bump_source="false"
+            echo "first release: v$new_version (from version.go)"
+          else
+            current="${last_tag#v}"
+            major=$(echo "$current" | cut -d. -f1)
+            minor=$(echo "$current" | cut -d. -f2)
+            patch=$(echo "$current" | cut -d. -f3)
+            commits=$(git log "$last_tag"..HEAD --pretty=format:"%s")
+            # Keyword scan on commit subjects. Matches "feat", "feature",
+            # "add", "new" as whole words, case-insensitive. Anything
+            # else falls through to a patch bump per the user's stated
+            # rule "every commit raises patch".
+            if printf '%s\n' "$commits" | grep -qiE '\b(feat|feature|add|new)\b'; then
+              new_version="$major.$((minor+1)).0"
+              echo "minor bump (feature keyword in subject): $last_tag -> v$new_version"
+            else
+              new_version="$major.$minor.$((patch+1))"
+              echo "patch bump: $last_tag -> v$new_version"
+            fi
+            should_bump_source="true"
+          fi
+          {
+            echo "new_version=$new_version"
+            echo "new_tag=v$new_version"
+            echo "should_bump_source=$should_bump_source"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Update version constants
+        if: steps.bump.outputs.should_bump_source == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          NEW=${{ steps.bump.outputs.new_version }}
+          # Capture-group form preserves the surrounding whitespace and
+          # quote style so the maintainer's manifest formatting survives.
+          sed -i -E 's/^(const Manager = ")[^"]+(")$/\1'"$NEW"'\2/' internal/version/version.go
+          sed -i -E 's/^(version[[:space:]]*=[[:space:]]*")[^"]+(")[[:space:]]*$/\1'"$NEW"'\2/' manifest.toml
+          echo "--- diff ---"
+          git --no-pager diff internal/version/version.go manifest.toml
+
+      - name: Cross-compile release artefacts
+        env:
+          VERSION: ${{ steps.bump.outputs.new_version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          # 6 targets matching what hashpoint-core can run on. Each ZIP
+          # follows spec §6.2: top-level <name>/ with binary + manifest.
+          # Each .sha256 is the single hex form the manager's checksum
+          # parser accepts (§6.2 step 6).
+          for target in linux/amd64 linux/arm64 windows/amd64 windows/arm64 darwin/amd64 darwin/arm64; do
+            os="${target%/*}"
+            arch="${target#*/}"
+            ext=""
+            if [ "$os" = "windows" ]; then ext=".exe"; fi
+            stage="$(mktemp -d)"
+            mkdir "$stage/plugin-manager"
+            GOOS="$os" GOARCH="$arch" go build -trimpath -ldflags="-s -w" \
+              -o "$stage/plugin-manager/plugin-manager$ext" ./cmd/plugin-manager
+            cp manifest.toml "$stage/plugin-manager/"
+            asset="plugin-manager_${VERSION}_${os}_${arch}.zip"
+            (cd "$stage" && zip -qr "$asset" plugin-manager)
+            mv "$stage/$asset" "dist/$asset"
+            sha256sum "dist/$asset" | awk '{print $1}' > "dist/$asset.sha256"
+            rm -rf "$stage"
+          done
+          ls -la dist/
+
+      - name: Commit version bump
+        if: steps.bump.outputs.should_bump_source == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          NEW=${{ steps.bump.outputs.new_version }}
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add internal/version/version.go manifest.toml
+          git commit -m "chore(release): v$NEW"
+          git push origin main
+
+      - name: Tag and push
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG=${{ steps.bump.outputs.new_tag }}
+          git tag "$TAG"
+          git push origin "$TAG"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG=${{ steps.bump.outputs.new_tag }}
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --generate-notes \
+            dist/*.zip dist/*.zip.sha256
