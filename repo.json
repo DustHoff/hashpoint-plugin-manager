@@ -1,4 +1,11 @@
 {
   "schema_version": 1,
-  "plugins": []
+  "plugins": [
+    {
+      "name": "personio-dayoff",
+      "repository": "DustHoff/hashpoint-plugin-personio-dayoff",
+      "description": "Liest Dayoff-/Abwesenheitstage aus der Personio-Frontend-API und stellt sie als Off-Hours-Intervalle bereit.",
+      "capabilities": ["off_hours_provider"]
+    }
+  ]
 }
