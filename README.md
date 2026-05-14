@@ -13,6 +13,15 @@ CGO_ENABLED=0 go build ./...
 CGO_ENABLED=0 go test ./...
 ```
 
+For Windows release builds, pass `-ldflags="-H=windowsgui"` so the plugin runs headless (no console window) and Windows won't deliver console-control events to it:
+
+```
+CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath \
+    -ldflags="-s -w -H=windowsgui" ./cmd/plugin-manager
+```
+
+The release pipeline applies this flag automatically for the Windows targets.
+
 The default `repo_index_url` points at this repository's `main` branch (`repo.json`); users can override it through the plugin's settings UI.
 
 ## Releases

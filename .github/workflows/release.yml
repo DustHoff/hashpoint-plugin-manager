@@ -128,10 +128,18 @@ jobs:
             os="${target%/*}"
             arch="${target#*/}"
             ext=""
-            if [ "$os" = "windows" ]; then ext=".exe"; fi
+            ldflags="-s -w"
+            if [ "$os" = "windows" ]; then
+              ext=".exe"
+              # GUI subsystem: no console window on launch, and Windows
+              # won't deliver console-control events (CTRL_C / CTRL_BREAK)
+              # to the process — so a stray ctrl event in the host's
+              # console group can't kill us with 0xC000013A.
+              ldflags="$ldflags -H=windowsgui"
+            fi
             stage="$(mktemp -d)"
             mkdir "$stage/plugin-manager"
-            GOOS="$os" GOARCH="$arch" go build -trimpath -ldflags="-s -w" \
+            GOOS="$os" GOARCH="$arch" go build -trimpath -ldflags="$ldflags" \
               -o "$stage/plugin-manager/plugin-manager$ext" ./cmd/plugin-manager
             cp manifest.toml "$stage/plugin-manager/"
             asset="plugin-manager_${VERSION}_${os}_${arch}.zip"
