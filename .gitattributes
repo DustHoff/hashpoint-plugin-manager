@@ -1,0 +1,16 @@
+* text=auto eol=lf
+
+# Force LF for text files git would otherwise mishandle on Windows.
+*.go        text eol=lf
+*.toml      text eol=lf
+*.json      text eol=lf
+*.md        text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+.gitignore  text eol=lf
+LICENSE     text eol=lf
+
+# Binary-ish exclusions: never touch line endings on these.
+*.zip       binary
+*.sha256    binary
+*.exe       binary

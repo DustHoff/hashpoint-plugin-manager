@@ -1,61 +1,25 @@
-// Package httpx centralises the HTTP policy from spec §9: HTTPS-only,
-// host whitelist, capped redirect depth. All outbound requests in the
-// plugin go through a client built here so the policy is enforced
-// uniformly.
+// Package httpx is the thin HTTP layer used by catalog, github, and
+// installer. It provides a shared http.Client constructor and a URL
+// redactor for safe logging. A host whitelist used to live here but was
+// dropped: the catalog (repo.json) is the authoritative source of
+// truth for which URLs the manager touches, and GitHub freely rotates
+// the CDN host that release-asset downloads redirect to — pinning a
+// whitelist created an operational footgun (a CDN change broke every
+// install with a misleading "transient failure").
 package httpx
 
 import (
-	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"time"
 )
 
-// AllowedHosts is the explicit allowlist from spec §9. Release-asset
-// downloads from github.com 302 to objects.githubusercontent.com, so
-// that host is included even though it never appears as a primary URL.
-var AllowedHosts = map[string]struct{}{
-	"api.github.com":                {},
-	"raw.githubusercontent.com":     {},
-	"github.com":                    {},
-	"objects.githubusercontent.com": {},
-}
-
-// MaxRedirects caps redirect depth. Spec §9 says "bis Tiefe 5".
-const MaxRedirects = 5
-
-// NewClient returns an http.Client wired with the redirect cap and
-// whitelist guard. A zero timeout means "no overall request timeout" —
-// callers should rely on context deadlines for download-style requests
-// where the wall-clock budget depends on asset size.
+// NewClient returns an http.Client with the given timeout. A zero
+// timeout means "no overall wall-clock limit" — callers should rely on
+// per-request context deadlines for downloads. Go's default redirect
+// policy (up to 10 hops) applies.
 func NewClient(timeout time.Duration) *http.Client {
-	return &http.Client{
-		Timeout: timeout,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if len(via) >= MaxRedirects {
-				return errors.New("httpx: too many redirects")
-			}
-			return AssertWhitelisted(req.URL.String())
-		},
-	}
-}
-
-// AssertWhitelisted rejects non-HTTPS URLs or hosts outside AllowedHosts.
-// Returned errors are bare (no sentinel wrap); callers pick the right
-// classification (typically ErrConfigInvalid for user-supplied URLs).
-func AssertWhitelisted(rawURL string) error {
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return fmt.Errorf("invalid url: %v", err)
-	}
-	if u.Scheme != "https" {
-		return fmt.Errorf("non-HTTPS url not allowed: %s", redact(rawURL))
-	}
-	if _, ok := AllowedHosts[u.Host]; !ok {
-		return fmt.Errorf("host not in whitelist: %s", u.Host)
-	}
-	return nil
+	return &http.Client{Timeout: timeout}
 }
 
 // RedactURL strips userinfo, query, and fragment so a logged URL never
@@ -71,6 +35,3 @@ func RedactURL(rawURL string) string {
 	u.Fragment = ""
 	return u.String()
 }
-
-// redact is the internal alias used by package-local error formatters.
-func redact(rawURL string) string { return RedactURL(rawURL) }

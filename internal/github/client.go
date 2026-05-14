@@ -16,7 +16,6 @@ import (
 	sdk "github.com/dusthoff/hashpoint/plugin/sdk"
 
 	"github.com/dusthoff/hashpoint-plugin-manager/internal/cache"
-	"github.com/dusthoff/hashpoint-plugin-manager/internal/httpx"
 	"github.com/dusthoff/hashpoint-plugin-manager/internal/logging"
 )
 
@@ -106,9 +105,6 @@ func (c *Client) ListReleases(ctx context.Context, ownerRepo string) ([]Release,
 }
 
 func (c *Client) fetchPage(ctx context.Context, pageURL string) ([]Release, string, error) {
-	if err := httpx.AssertWhitelisted(pageURL); err != nil {
-		return nil, "", fmt.Errorf("%w: %v", sdk.ErrConfigInvalid, err)
-	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, pageURL, nil)
 	if err != nil {
 		return nil, "", err

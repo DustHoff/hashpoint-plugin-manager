@@ -8,8 +8,6 @@ import (
 	"os"
 
 	sdk "github.com/dusthoff/hashpoint/plugin/sdk"
-
-	"github.com/dusthoff/hashpoint-plugin-manager/internal/httpx"
 )
 
 // download fetches url into dest, refusing anything larger than maxBytes.
@@ -17,9 +15,6 @@ import (
 // "exactly at limit" from "exceeds limit". Transient errors are
 // wrapped sdk.ErrTransient so the host can route to retry-UI.
 func download(ctx context.Context, client *http.Client, url, dest string, maxBytes int64) error {
-	if err := httpx.AssertWhitelisted(url); err != nil {
-		return fmt.Errorf("download: %v", err)
-	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return fmt.Errorf("download: build request: %v", err)

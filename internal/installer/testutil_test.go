@@ -8,35 +8,18 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
-
-	"github.com/dusthoff/hashpoint-plugin-manager/internal/httpx"
 )
 
-// allowTestHost adds host to the httpx whitelist for the duration of t.
-// Tests in this package run sequentially (no t.Parallel), so map
-// mutation is race-free.
-func allowTestHost(t *testing.T, host string) {
-	t.Helper()
-	httpx.AllowedHosts[host] = struct{}{}
-	t.Cleanup(func() { delete(httpx.AllowedHosts, host) })
-}
-
-// startServer wraps httptest.NewTLSServer with the whitelist update so
-// the installer's HTTP-fetch path can reach loopback URLs.
+// startServer wraps httptest.NewTLSServer so installer HTTP-fetch paths
+// can reach loopback URLs over TLS with the test cert trusted.
 func startServer(t *testing.T, h http.Handler) (string, *http.Client) {
 	t.Helper()
 	srv := httptest.NewTLSServer(h)
 	t.Cleanup(srv.Close)
-	u, err := url.Parse(srv.URL)
-	if err != nil {
-		t.Fatalf("parse srv.URL: %v", err)
-	}
-	allowTestHost(t, u.Host)
 	return srv.URL, srv.Client()
 }
 

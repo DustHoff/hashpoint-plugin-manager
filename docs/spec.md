@@ -202,9 +202,10 @@ Alle Errors via `fmt.Errorf("%w: <kontext>", sentinel)` wrappen.
 
 ## 9. Security
 
-- Nur **HTTPS** für Downloads und API-Calls; HTTP wird abgelehnt.
-- GitHub-Domains explizit whitelisten: `api.github.com`, `raw.githubusercontent.com`, `github.com` (Releases-Download leitet auf `objects.githubusercontent.com` weiter — Redirects bis Tiefe 5 erlauben).
-- ZIP-Entpacken: **Zip-Slip** verhindern (`filepath.Clean` + Präfix-Check gegen Temp-Wurzel).
+- HTTPS für die user-konfigurierte `repo_index_url` — wird in `config.Parse` geprüft und ist die einzige stellenwert-relevante User-Eingabe (§3.1). Weitere URLs werden vom Katalog und der GitHub-API geliefert und sind in der Praxis ebenfalls HTTPS; das Plugin verifiziert sie nicht zusätzlich.
+- **Keine** Host-Whitelist. Eine frühere Implementierung pinned die Subdomains von GitHub explizit (`objects.githubusercontent.com` u.a.); GitHub hat ihre Release-Asset-CDN-Hosts rotiert (`release-assets.githubusercontent.com`), was jeden Install mit einer irreführenden "transient failure" gebrochen hat. Der Katalog selbst (kompilierte Default-URL plus User-Konfiguration) ist die Autorität, welche Domains der Manager kontaktieren darf.
+- Redirects folgen der Go-Default-Policy (max 10 Sprünge).
+- ZIP-Entpacken: **Zip-Slip** verhindern (`filepath.Clean` + Präfix-Check gegen Temp-Wurzel); Symlink-Einträge ablehnen.
 - Asset-Größenlimit (Default 100 MiB), konfigurierbar.
 - SHA-256-Checksum für jedes Asset **verpflichtend** (siehe §6.2 Schritt 6).
 - GitHub-Token nur on-demand via `host.RedeemSecret` lesen, in Memory halten, nicht loggen.
@@ -246,7 +247,7 @@ Diese Sektion definiert das verpflichtende Testniveau. Ziel ist nicht Coverage-M
 |---|---|---|
 | `internal/config` | `Parse`: Happy-Path; `repo_index_url` leer ⇒ Fallback auf `DefaultRepoIndexURL` (kein Fehler); gesetzte aber non-HTTPS / Parse-Fehler / `cache_ttl_seconds` ungültig / `include_prereleases` ungültig / `pinned_versions` JSON-Fehler / Pin verletzt Major-Rule ⇒ jeweils `ErrConfigInvalid`. Default-Werte für TTL und Prereleases; Default-URL hat HTTPS-Schema. | §2.2, §3.1, §4.1, §5, §7 |
 | `internal/cache` | Hit innerhalb TTL, Miss nach Ablauf (via injizierter Fake-Clock), Miss nach `Reset`, `ttl=0` ⇒ kein Caching, Concurrency-smoke (paralleles Get/Set ohne race detector beschwerden). | §8 |
-| `internal/httpx` | `AssertWhitelisted`: HTTPS-Pflicht, jede Host in `AllowedHosts` akzeptiert, ein nicht gelisteter Host abgelehnt; `RedactURL` entfernt Userinfo + Query + Fragment. | §9, §10 |
+| `internal/httpx` | `RedactURL` entfernt Userinfo + Query + Fragment. (Eine frühere Host-Whitelist und HTTPS-Pflicht in dieser Schicht wurden mit dem CDN-Rotations-Vorfall entfernt — siehe §9.) | §9, §10 |
 | `internal/catalog` | Über `httptest`: 200 Happy-Path mit Schema 1, Schema-Mismatch ⇒ `ErrConfigInvalid`, kaputtes JSON ⇒ `ErrConfigInvalid`, 404 ⇒ `ErrConfigInvalid`, 5xx ⇒ `ErrTransient`, 429 ⇒ `ErrTransient`, Body über Limit ⇒ `ErrConfigInvalid`, Cache-Hit serviert zweiten Aufruf ohne HTTP. | §3.1, §7, §8 |
 | `internal/github` (resolve) | `FilterCandidates`: Drafts/Prereleases/Major-Mismatches gefiltert, Pre-Release-Toggle, Sortierung absteigend, leere Eingabe ⇒ leere Ausgabe; `FindByVersion` mit und ohne `v`-Präfix. | §4 |
 | `internal/github` (client) | Über `httptest`: Bearer-Header gesetzt wenn Token-Provider liefert; nicht gesetzt wenn Provider nil; 403 + `X-RateLimit-Remaining: 0` ⇒ `ErrTransient`; 5xx/429 ⇒ `ErrTransient`; Pagination via `Link rel="next"`; Token-Provider-Fehler `ErrUnknownSecretHandle` propagiert unverändert. | §3.2, §7 |

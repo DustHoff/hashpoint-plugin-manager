@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -14,28 +13,13 @@ import (
 
 	sdk "github.com/dusthoff/hashpoint/plugin/sdk"
 
-	"github.com/dusthoff/hashpoint-plugin-manager/internal/httpx"
 	"github.com/dusthoff/hashpoint-plugin-manager/internal/logging"
 )
-
-// allowTestHost adds host to the whitelist for the duration of t.
-// Tests in this package run sequentially (no t.Parallel), so the
-// shared-map mutation is safe.
-func allowTestHost(t *testing.T, host string) {
-	t.Helper()
-	httpx.AllowedHosts[host] = struct{}{}
-	t.Cleanup(func() { delete(httpx.AllowedHosts, host) })
-}
 
 func startServer(t *testing.T, h http.Handler) (string, *http.Client) {
 	t.Helper()
 	srv := httptest.NewTLSServer(h)
 	t.Cleanup(srv.Close)
-	u, err := url.Parse(srv.URL)
-	if err != nil {
-		t.Fatalf("parse srv.URL: %v", err)
-	}
-	allowTestHost(t, u.Host)
 	return srv.URL, srv.Client()
 }
 

@@ -15,7 +15,6 @@ import (
 	sdk "github.com/dusthoff/hashpoint/plugin/sdk"
 
 	"github.com/dusthoff/hashpoint-plugin-manager/internal/cache"
-	"github.com/dusthoff/hashpoint-plugin-manager/internal/httpx"
 	"github.com/dusthoff/hashpoint-plugin-manager/internal/logging"
 )
 
@@ -86,9 +85,6 @@ func (c *Client) Load(ctx context.Context, indexURL string) (*Index, error) {
 	}
 	c.log.Debug(ctx, "catalog cache miss", map[string]string{"url": indexURL})
 
-	if err := httpx.AssertWhitelisted(indexURL); err != nil {
-		return nil, fmt.Errorf("%w: %v", sdk.ErrConfigInvalid, err)
-	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, indexURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("%w: build request: %v", sdk.ErrConfigInvalid, err)

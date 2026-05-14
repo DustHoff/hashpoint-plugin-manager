@@ -6,38 +6,21 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	sdk "github.com/dusthoff/hashpoint/plugin/sdk"
 
-	"github.com/dusthoff/hashpoint-plugin-manager/internal/httpx"
 	"github.com/dusthoff/hashpoint-plugin-manager/internal/logging"
 )
 
-// allowTestHost adds host to the whitelist for the duration of t.
-// Mutation is safe because tests in this package don't run in parallel.
-func allowTestHost(t *testing.T, host string) {
-	t.Helper()
-	httpx.AllowedHosts[host] = struct{}{}
-	t.Cleanup(func() { delete(httpx.AllowedHosts, host) })
-}
-
-// startServer builds a TLS httptest server, adds its host to the
-// whitelist, and returns the URL plus an *http.Client that trusts
-// the test cert.
+// startServer builds a TLS httptest server and returns its URL plus an
+// *http.Client that trusts the test cert.
 func startServer(t *testing.T, h http.Handler) (string, *http.Client) {
 	t.Helper()
 	srv := httptest.NewTLSServer(h)
 	t.Cleanup(srv.Close)
-	u, err := url.Parse(srv.URL)
-	if err != nil {
-		t.Fatalf("parse srv.URL: %v", err)
-	}
-	allowTestHost(t, u.Host)
 	return srv.URL, srv.Client()
 }
 
@@ -201,17 +184,7 @@ func TestLoad_ResetCache_ForcesRefetch(t *testing.T) {
 	}
 }
 
-func TestLoad_HostNotInWhitelist_ErrConfigInvalid(t *testing.T) {
-	// Construct a URL pointing at evil.example.com which is never whitelisted.
-	c := NewClient(http.DefaultClient, logging.Nop{}, time.Minute)
-	_, err := c.Load(context.Background(), "https://evil.example.com/repo.json")
-	if !errors.Is(err, sdk.ErrConfigInvalid) {
-		t.Errorf("err = %v, want wrap of ErrConfigInvalid", err)
-	}
-	if !strings.Contains(err.Error(), "whitelist") {
-		t.Errorf("err message = %q, want it to mention whitelist", err.Error())
-	}
-}
-
-// ensure imports are used even if the test cases above are stripped during edits
+// ensure imports stay referenced if a future edit strips a case
 var _ = fmt.Sprintf
+var _ = errors.Is
+var _ = sdk.ErrTransient
