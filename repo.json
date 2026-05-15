@@ -6,6 +6,12 @@
       "repository": "DustHoff/hashpoint-plugin-personio-dayoff",
       "description": "Liest Dayoff-/Abwesenheitstage aus der Personio-Frontend-API und stellt sie als Off-Hours-Intervalle bereit.",
       "capabilities": ["off_hours_provider"]
+    },
+    {
+      "name": "soggl",
+      "repository": "DustHoff/hashpoint-plugin-soggl",
+      "description": "Tag provider bridging Hashpoint with the internal Soggl application.",
+      "capabilities": ["tag_provider"]
     }
   ]
 }
